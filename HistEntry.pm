@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: HistEntry.pm,v 1.7 1997/12/12 23:22:20 eserte Exp $
+# $Id: HistEntry.pm,v 1.9 1998/05/20 08:37:01 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright © 1997 Slaven Rezic. All rights reserved.
@@ -17,7 +17,7 @@ require Tk;
 use strict;
 use vars qw($VERSION);
 
-$VERSION = '0.20';
+$VERSION = '0.21';
 
 sub addBind {
     my $w = shift;
@@ -25,8 +25,15 @@ sub addBind {
     $w->bind('<Control-p>' => sub { $w->historyUp });
     $w->bind('<Down>'      => sub { $w->historyDown });
     $w->bind('<Control-n>' => sub { $w->historyDown });
+
+    $w->bind('<Meta-less>'    => sub { $w->historyBegin });
+    $w->bind('<Alt-less>'     => sub { $w->historyBegin });
+    $w->bind('<Meta-greater>' => sub { $w->historyEnd });
+    $w->bind('<Alt-greater>'  => sub { $w->historyEnd });
+
     $w->bind('<Control-r>' => sub { $w->searchBack });
     $w->bind('<Control-s>' => sub { $w->searchForw });
+
     $w->bind('<Return>' => sub { 
 		 if ($w->cget(-command)) {
 		     $w->invoke;
@@ -46,7 +53,7 @@ sub historyAdd {
     my($w, $string) = @_;
     $string = $ {$w->cget(-textvariable)} if !defined $string;
     return undef if !defined $string || $string eq '';
-    if ((@{$w->{'history'}}
+    if ((!@{$w->{'history'}}
 	 || $string ne $w->{'history'}->[$#{$w->{'history'}}])
 	&& ($w->cget(-dup) || !$w->_isdup($string))) {
 	push(@{$w->{'history'}}, $string);
@@ -55,17 +62,24 @@ sub historyAdd {
 	    shift @{$w->{'history'}};
 	}
 	$w->{'historyindex'} = $#{$w->{'history'}} + 1;
-	return 1;
+	return $string;
     }
     undef;
+}
+# compatibility with Term::ReadLine
+*addhistory = \&historyAdd;
+
+sub historyUpdate {
+    my $w = shift;
+    $ {$w->cget(-textvariable)} = $w->{'history'}->[$w->{'historyindex'}];
+    $w->icursor('end'); # suggestion by Jason Smith <smithj4@rpi.edu>
 }
 
 sub historyUp {
     my $w = shift;
     if ($w->{'historyindex'} > 0) {
 	$w->{'historyindex'}--;
-	$ {$w->cget(-textvariable)} = $w->{'history'}->[$w->{'historyindex'}];
-	$w->icursor('end'); # suggestion by Jason Smith <smithj4@rpi.edu>
+	$w->historyUpdate;
     } else {
 	$w->_bell;
     }
@@ -75,11 +89,22 @@ sub historyDown {
     my $w = shift;
     if ($w->{'historyindex'} <= $#{$w->{'history'}}) {
 	$w->{'historyindex'}++;
-	$ {$w->cget(-textvariable)} = $w->{'history'}->[$w->{'historyindex'}];
-	$w->icursor('end');
+	$w->historyUpdate;
     } else {
 	$w->_bell;
     }
+}
+
+sub historyBegin {
+    my $w = shift;
+    $w->{'historyindex'} = 0;
+    $w->historyUpdate;
+}
+
+sub historyEnd {
+    my $w = shift;
+    $w->{'historyindex'} = $#{$w->{'history'}};
+    $w->historyUpdate;
 }
 
 sub historySet {
@@ -95,12 +120,11 @@ sub historySet {
 
 sub history {
     my($w, $history) = @_;
-    if (!defined $history) {
-	@{$w->{'history'}};
-    } else {
-	@{$w->{'history'}} = @$history;
+    if (defined $history) {
+	@{$w->{'history'}}   = @$history;
 	$w->{'historyindex'} = $#{$w->{'history'}} + 1;
     }
+    @{$w->{'history'}};
 }
 
 sub searchBack {
@@ -139,7 +163,7 @@ sub invoke {
     my($w, $string) = @_;
     $string = $ {$w->cget(-textvariable)} if !defined $string;
     return unless defined $string;
-    my $added = $w->historyAdd($string);
+    my $added = defined $w->historyAdd($string);
     &{$w->cget(-command)}($w, $string, $added);
 }
 
@@ -231,26 +255,26 @@ sub SetBindtags {
 
 sub historyAdd {
     my($w, $string) = @_;
-    if ($w->SUPER::historyAdd($string)) {
+    if (defined($string = $w->SUPER::historyAdd($string))) {
 	$w->insert('end', $string);
 	if (defined $w->cget(-limit) &&
 	    $w->Subwidget('slistbox')->size > $w->cget(-limit)) {
 	    $w->delete(0);
 	}
 	$w->Subwidget('slistbox')->see('end');
-	return 1;
+	return $string;
     }
     undef;
 }
 
 sub history {
     my($w, $history) = @_;
-    $w->SUPER::history($history);
     if (defined $history) {
 	$w->Subwidget('slistbox')->delete(0, 'end');
 	$w->Subwidget('slistbox')->insert('end', @$history);
 	$w->Subwidget('slistbox')->see('end');
     }
+    $w->SUPER::history($history);
 }
 
 1;
@@ -334,16 +358,17 @@ Limits the number of history entries. Defaults to unlimited.
 =item B<historyAdd(>[I<string>]B<)>
 
 Adds string (or the current textvariable value if not set) manually to the
-history list.
+history list. B<addhistory> is an alias for B<historyAdd>. Returns the
+added string or undef if no addition was made.
 
 =item B<invoke(>[I<string>]B<)>
 
-Invokes the command.
+Invokes the command specified with B<-command>.
 
 =item B<history(>[I<arrayref>]B<)>
 
-Without argument, gets the current history list. With argument (a reference
-to an array), replaces the history list.
+Without argument, returns the current history list. With argument (a
+reference to an array), replaces the history list.
 
 =back
 
@@ -358,6 +383,14 @@ Selects the previous history entry.
 =item B<Down>, B<Control-n>
 
 Selects the next history entry.
+
+=item B<Meta-E<lt>>, B<Alt-E<lt>>
+
+Selects first entry.
+
+=item B<Meta-E<gt>>, B<Alt-E<gt>>
+
+Selects last entry.
 
 =item B<Control-r>
 
@@ -393,6 +426,7 @@ executes the associated callback.
 
  - C-s/C-r do not work as nice as in gnu readline
  - use -browsecmd from Tk::BrowseEntry
+ - use Tie::Array if present
 
 =head1 AUTHOR
 
