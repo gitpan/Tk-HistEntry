@@ -1,0 +1,16 @@
+Revision history for Perl extension Tk::HistEntry.
+
+0.20
+        - split Tk::HistEntry into Tk::HistEntry::Simple and
+          Tk::HistEntry::Browse
+        - new options: -dup, -limit, -bell, -command
+	- new methods: invoke, history
+        - some fixes
+	- POD
+
+0.10  Mon Dec  8 03:07:00 1997
+	- using Tk::BrowseEntry as base class instead of Tk::Entry
+
+0.01  Sat Dec  6 17:43:45 1997
+	- original version
+

@@ -1,0 +1,7 @@
+Changes
+HistEntry.pm
+MANIFEST
+Makefile.PL
+README
+t/1.t
+t/newclass.t
