@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: basic.t,v 1.13 2001/04/29 18:50:09 eserte Exp $
+# $Id: basic.t,v 1.15 2002/03/17 21:23:49 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997,1998 Slaven Rezic. All rights reserved.
@@ -16,11 +16,11 @@ BEGIN {
     $^W = 1;
     $| = 1;
     $loaded = 0;
-    $last = 40;
+    $last = 46;
     print "1..$last";
-    if ($] >= 5.005 && $] < 5.006) {
-	print " todo 11;";
-    }
+#      if ($] >= 5.005 && $] < 5.006) {
+#  	print " todo 13;";
+#      }
     print "\n";
 }
 
@@ -65,6 +65,11 @@ if (!Tk::Exists($b1)) {
 }
 print "ok " . $ok++ . "\n";
 
+if ($b1->class ne 'SimpleHistEntry') {
+    _not;
+}
+print "ok " . $ok++ . "\n";
+
 $b2 = $top->HistEntry(-textvariable => \$bla,
 		      -bell => 1,
 		      -dup => 0,
@@ -72,6 +77,11 @@ $b2 = $top->HistEntry(-textvariable => \$bla,
 		      -labelPack => [-side => 'top'],
 		     )->pack;
 if (!Tk::Exists($b2)) {
+    _not;
+}
+print "ok " . $ok++ . "\n";
+
+if ($b2->class ne 'HistEntry') {
     _not;
 }
 print "ok " . $ok++ . "\n";
@@ -254,6 +264,31 @@ foreach my $b ($b1, $b2) {
     $b->_entry->insert(0, "foobar");
     $b->historyAdd;
     if (scalar $b->history != $hist_entries) {
+	_not;
+    }
+    print "ok " . $ok++ . "\n";
+}
+
+{
+    # check -history config option
+    my $he = $top->SimpleHistEntry(-history => [qw(1 2 3)]);
+    if (join(" ",$he->cget(-history)) ne "1 2 3") {
+	_not;
+    }
+    print "ok " . $ok++ . "\n";
+
+    if (join(" ",$he->history) ne "1 2 3") {
+	_not;
+    }
+    print "ok " . $ok++ . "\n";
+
+    my $he2 = $top->HistEntry(-history => [qw(1 2 3)]);
+    if (join(" ",$he2->cget(-history)) ne "1 2 3") {
+	_not;
+    }
+    print "ok " . $ok++ . "\n";
+
+    if (join(" ",$he2->history) ne "1 2 3") {
 	_not;
     }
     print "ok " . $ok++ . "\n";

@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: HistEntry.pm,v 1.23 2001/04/29 18:48:23 eserte Exp $
+# $Id: HistEntry.pm,v 1.25 2002/03/17 21:23:35 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright © 1997, 2000, 2001 Slaven Rezic. All rights reserved.
@@ -17,7 +17,7 @@ require Tk;
 use strict;
 use vars qw($VERSION);
 
-$VERSION = '0.37';
+$VERSION = '0.40';
 
 sub addBind {
     my $w = shift;
@@ -276,7 +276,11 @@ sub KeyPress {
 
     my $text = $e->get;
     ###Grab test from entry upto cursor
-    (my $typedtext = $text) =~ s/^(.{$cursor}).*/$1/;
+    (my $typedtext = $text) =~ s/^(.{$cursor})(.*)/$1/;
+    if ($2 ne "") {
+	###text after cursor, do not use matching
+	return;
+    }
 
     if ($cursor == 0 || $text eq '') {
 	###No text before cursor, reset list
@@ -323,6 +327,12 @@ use vars qw(@ISA);
 #use base qw(Tk::Derived Tk::Entry Tk::HistEntry);
 Construct Tk::Widget 'SimpleHistEntry';
 
+sub CreateArgs {
+    my($package, $parent, $args) = @_;
+    $args->{-class} = "SimpleHistEntry" unless exists $args->{-class};
+    $package->SUPER::CreateArgs($parent, $args);
+}
+
 sub Populate {
     my($w, $args) = @_;
 
@@ -345,6 +355,7 @@ sub Populate {
        -limit   => ['PASSIVE',  'limit',   'Limit',   undef],
        -match   => ['PASSIVE',  'match',   'Match',   0],
        -case    => ['PASSIVE',  'case',    'Case',    1],
+       -history => ['METHOD'],
       );
 
     $w;
@@ -358,6 +369,12 @@ use vars qw(@ISA);
 @ISA = qw(Tk::Derived Tk::BrowseEntry Tk::HistEntry);
 #use base qw(Tk::Derived Tk::BrowseEntry Tk::HistEntry);
 Construct Tk::Widget 'HistEntry';
+
+sub CreateArgs {
+    my($package, $parent, $args) = @_;
+    $args->{-class} = "HistEntry" unless exists $args->{-class};
+    $package->SUPER::CreateArgs($parent, $args);
+}
 
 sub Populate {
     my($w, $args) = @_;
@@ -384,6 +401,8 @@ sub Populate {
     $w->{start} = 0;
     $w->{end} = 0;
 
+    my $entry = $w->Subwidget('entry');
+
     $w->ConfigSpecs
       (-command => ['CALLBACK', 'command', 'Command', undef],
        -auto    => ['PASSIVE',  'auto',    'Auto',    0],
@@ -392,11 +411,12 @@ sub Populate {
        -limit   => ['PASSIVE',  'limit',   'Limit',   undef],
        -match   => ['PASSIVE',  'match',   'Match',   0],
        -case    => ['PASSIVE',  'case',    'Case',    1],
+       -history => ['METHOD'],
       );
 
-    $w->Delegates('delete' => $w->Subwidget('entry'),
-		  'get'    => $w->Subwidget('entry'),
-		  'insert' => $w->Subwidget('entry'),
+    $w->Delegates('delete' => $entry,
+		  'get'    => $entry,
+		  'insert' => $entry,
 		 );
 
     $w;
