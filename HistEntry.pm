@@ -1,10 +1,10 @@
 # -*- perl -*-
 
 #
-# $Id: HistEntry.pm,v 1.19 2000/07/28 23:45:10 eserte Exp $
+# $Id: HistEntry.pm,v 1.22 2001/02/24 00:14:34 eserte Exp $
 # Author: Slaven Rezic
 #
-# Copyright © 1997, 2000 Slaven Rezic. All rights reserved.
+# Copyright © 1997, 2000, 2001 Slaven Rezic. All rights reserved.
 # This package is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 #
@@ -17,7 +17,7 @@ require Tk;
 use strict;
 use vars qw($VERSION);
 
-$VERSION = '0.35';
+$VERSION = '0.36';
 
 sub addBind {
     my $w = shift;
@@ -35,7 +35,7 @@ sub addBind {
     $w->_entry->bind('<Control-r>' => sub { $w->searchBack });
     $w->_entry->bind('<Control-s>' => sub { $w->searchForw });
 
-    $w->_entry->bind('<Return>' => sub { 
+    $w->_entry->bind('<Return>' => sub {
 		 if ($w->cget(-command) || $w->cget(-auto)) {
 		     $w->invoke;
 		 }
@@ -43,17 +43,18 @@ sub addBind {
 
     $w->_entry->bind('<Any-KeyPress>', sub {
 			 my $e = $_[0]->XEvent;
-			 $w->KeyPress($e->K);
+			 $w->KeyPress($e->K, $e->s);
 		     });
 }
 
-sub _isdup {
-    my($w, $string) = @_;
-    foreach (@{ $w->privateData->{'history'} }) {
-	return 1 if $_ eq $string;
-    }
-    0;
-}
+# XXX del:
+#  sub _isdup {
+#      my($w, $string) = @_;
+#      foreach (@{ $w->privateData->{'history'} }) {
+#  	return 1 if $_ eq $string;
+#      }
+#      0;
+#  }
 
 sub _update {
     my($w, $string) = @_;
@@ -82,19 +83,36 @@ sub _listbox_method {
 sub _has_listbox { $_[0]->Subwidget('slistbox') }
 
 sub historyAdd {
-    my($w, $string) = @_;
+    my($w, $string, %args) = @_;
+
     $string = $w->_entry->get unless defined $string;
     return undef if !defined $string || $string eq '';
-    my $history_ref = $w->privateData->{'history'};
-    if ((!@{ $history_ref } or $string ne $history_ref->[$#$history_ref])
-	and ($w->cget(-dup) or !$w->_isdup($string))) {
-	push @{ $history_ref }, $string;
-	if (defined $w->cget(-limit) &&
-	    @{ $history_ref } > $w->cget(-limit)) {
-	    shift @{ $history_ref };
+
+    my $history = $w->privateData->{'history'};
+    if (!@$history or $string ne $history->[-1]) {
+	my $spliced = 0;
+	if (!$w->cget(-dup)) {
+	    for(my $i = 0; $i<=$#$history; $i++) {
+		if ($string eq $history->[$i]) {
+		    splice @$history, $i, 1;
+		    $spliced++;
+		    last;
+		}
+	    }
 	}
-	$w->privateData->{'historyindex'} = $#$history_ref + 1;
-	return $string;
+
+	push @$history, $string;
+	if (defined $w->cget(-limit) &&
+	    @$history > $w->cget(-limit)) {
+	    shift @$history;
+	}
+	$w->privateData->{'historyindex'} = $#$history + 1;
+
+	my @ret = $string;
+	if ($args{-spliceinfo}) {
+	    push @ret, $spliced;
+	}
+	return @ret;
     }
     undef;
 }
@@ -234,11 +252,12 @@ sub _bell {
 }
 
 sub KeyPress {
-    my($w, $key) = @_;
+    my($w, $key, $state) = @_;
     my $e = $w->_entry;
     my(@history) = reverse $w->history;
     $w->{end} = $#history; # XXXXXXXX?
     return if ($key =~ /^Shift|^Control|^Left|^Right|^Home|^End/);
+    return if ($state =~ /^Control-/);
     if ($key eq 'Tab') {
 	# Tab doesn't trigger FocusOut event so clear selection
 	$e->selection('clear');
@@ -271,8 +290,9 @@ sub KeyPress {
 	my ($newstart, $newend);
 
 	###Locate start of matching & end of matching
+	my $caseregex = ($w->cget(-case) ? "(?i)" : "");
 	for (; $start <= $end; $start++) {
-	    if ($history[$start] =~ /^\Q$typedtext\E/) {
+	    if ($history[$start] =~ /^$caseregex\Q$typedtext\E/) {
 		$newstart = $start if (!defined $newstart);
 		$newend = $start;
 	    } else {
@@ -324,6 +344,7 @@ sub Populate {
        -bell    => ['PASSIVE',  'bell',    'Bell',    1],
        -limit   => ['PASSIVE',  'limit',   'Limit',   undef],
        -match   => ['PASSIVE',  'match',   'Match',   0],
+       -case    => ['PASSIVE',  'case',    'Case',    1],
       );
 
     $w;
@@ -347,7 +368,7 @@ sub Populate {
 	$w->SUPER::Populate($args);
     } else {
 	my $saveargs;
-	foreach (qw(-auto -command -dup -bell -limit -match)) {
+	foreach (qw(-auto -command -dup -bell -limit -match -case)) {
 	    if (exists $args->{$_}) {
 		$saveargs->{$_} = delete $args->{$_};
 	    }
@@ -366,10 +387,11 @@ sub Populate {
     $w->ConfigSpecs
       (-command => ['CALLBACK', 'command', 'Command', undef],
        -auto    => ['PASSIVE',  'auto',    'Auto',    0],
-       -dup     => ['PASSIVE',  'dup',     'Dup',     0],
+       -dup     => ['PASSIVE',  'dup',     'Dup',     1],
        -bell    => ['PASSIVE',  'bell',    'Bell',    1],
        -limit   => ['PASSIVE',  'limit',   'Limit',   undef],
        -match   => ['PASSIVE',  'match',   'Match',   0],
+       -case    => ['PASSIVE',  'case',    'Case',    1],
       );
 
     $w->Delegates('delete' => $w->Subwidget('entry'),
@@ -382,15 +404,20 @@ sub Populate {
 
 sub historyAdd {
     my($w, $string) = @_;
-    if (defined($string = $w->SUPER::historyAdd($string))) {
-	$w->_listbox_method("insert", 'end', $string);
-	# XXX Obeying -limit also for the array itself?
-	if (defined $w->cget(-limit) &&
-	    $w->_listbox_method("size") > $w->cget(-limit)) {
-	    $w->_listbox_method("delete", 0);
+    my($inserted, $spliced) = $w->SUPER::historyAdd($string, -spliceinfo => 1);
+    if (defined $inserted) {
+	if ($spliced) {
+	    $w->history($w->SUPER::history);
+	} else {
+	    $w->_listbox_method("insert", 'end', $inserted);
+	    # XXX Obeying -limit also for the array itself?
+	    if (defined $w->cget(-limit) &&
+		$w->_listbox_method("size") > $w->cget(-limit)) {
+		$w->_listbox_method("delete", 0);
+	    }
 	}
 	$w->_listbox_method("see", 'end');
-	return $string;
+	return $inserted;
     }
     undef;
 }
@@ -481,6 +508,11 @@ Limits the number of history entries. Defaults to unlimited.
 =item B<-match>
 
 Turns auto-completion on.
+
+=item B<-case>
+
+If set to true a true value, then be case sensitive on
+auto-completion. Defaults to 1.
 
 =back
 
@@ -608,7 +640,7 @@ code is stolen from Tk::IntEntry by Dave Collins
 
 =head1 COPYRIGHT
 
-Copyright (c) 1997, 2000 Slaven Rezic. All rights reserved.
+Copyright (c) 1997, 2000, 2001 Slaven Rezic. All rights reserved.
 This package is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
 
