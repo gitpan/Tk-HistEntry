@@ -1,15 +1,15 @@
 # -*- perl -*-
 
 #
-# $Id: HistEntry.pm,v 1.15 1999/03/18 19:18:28 eserte Exp $
+# $Id: HistEntry.pm,v 1.17 2000/06/13 22:01:54 eserte Exp $
 # Author: Slaven Rezic
 #
-# Copyright © 1997 Slaven Rezic. All rights reserved.
+# Copyright © 1997, 2000 Slaven Rezic. All rights reserved.
 # This package is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 #
-# Mail: <URL:mailto:eserte@cs.tu-berlin.de>
-# WWW:  <URL:http://www.cs.tu-berlin.de/~eserte/>
+# Mail: mailto:eserte@cs.tu-berlin.de
+# WWW:  http://www.cs.tu-berlin.de/~eserte/
 #
 
 package Tk::HistEntry;
@@ -17,7 +17,7 @@ require Tk;
 use strict;
 use vars qw($VERSION);
 
-$VERSION = '0.31';
+$VERSION = '0.33';
 
 sub addBind {
     my $w = shift;
@@ -147,6 +147,25 @@ sub historyReset {
     $w->privateData->{'historyindex'} = 0;
 }
 
+sub historySave {
+    my($w, $file) = @_;
+    open(W, ">$file") or die "Can't save to file $file";
+    print W join("\n", $w->history) . "\n";
+    close W;
+}
+
+# XXX document
+sub historyMergeFromFile {
+    my($w, $file) = @_;
+    if (open(W, "<$file")) {
+	while(<W>) {
+	    chomp;
+	    $w->historyAdd($_);
+	}
+	close W;
+    }
+}
+
 sub history {
     my($w, $history) = @_;
     if (defined $history) {
@@ -208,7 +227,7 @@ sub KeyPress {
     my $e = $w->_entry;
     my(@history) = reverse $w->history;
     $w->{end} = $#history; # XXXXXXXX?
-    return if ($key =~ /^Shift|^Control|^Left|^Right/);
+    return if ($key =~ /^Shift|^Control|^Left|^Right|^Home|^End/);
     if ($key eq 'Tab') {
 	# Tab doesn't trigger FocusOut event so clear selection
 	$e->selection('clear');
@@ -219,16 +238,16 @@ sub KeyPress {
     $e->update;
     my $cursor = $e->index('insert');
 
-    if ($key eq 'BackSpace') {
+    if ($key eq 'BackSpace' or $key eq 'Delete') {
 	$w->{start} = 0;
 	$w->{end} = $#history;
 	return;
     }
-  
+
     my $text = $e->get;
     ###Grab test from entry upto cursor
     (my $typedtext = $text) =~ s/^(.{$cursor}).*/$1/;
-  
+
     if ($cursor == 0 || $text eq '') {
 	###No text before cursor, reset list
 	$w->{start} = 0;
@@ -249,7 +268,7 @@ sub KeyPress {
 		last if (defined $newstart);
 	    }
 	}
-	
+
 	if (defined $newstart) {
 	    $e->selection('clear');
 	    $e->delete(0, 'end');
@@ -468,6 +487,19 @@ Invokes the command specified with B<-command>.
 Without argument, returns the current history list. With argument (a
 reference to an array), replaces the history list.
 
+=item B<historySave(>I<file>B<)>
+
+Save the history list to the named file.
+
+=item B<historyMergeFromFile(>I<file>B<)>
+
+Merge the history list from the named file to the end of the current
+history list of the widget.
+
+=item B<historyReset>
+
+Remove all entries from the history list.
+
 =back
 
 =head1 KEY BINDINGS
@@ -539,7 +571,7 @@ code is stolen from Tk::IntEntry by Dave Collins
 
 =head1 COPYRIGHT
 
-Copyright (c) 1997 Slaven Rezic. All rights reserved.
+Copyright (c) 1997, 2000 Slaven Rezic. All rights reserved.
 This package is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
 
