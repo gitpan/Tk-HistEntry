@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: HistEntry.pm,v 1.27 2003/08/01 15:55:53 eserte Exp $
+# $Id: HistEntry.pm,v 1.29 2003/10/27 22:15:03 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright © 1997, 2000, 2001, 2003 Slaven Rezic. All rights reserved.
@@ -17,7 +17,7 @@ require Tk;
 use strict;
 use vars qw($VERSION);
 
-$VERSION = '0.41';
+$VERSION = '0.42';
 
 sub addBind {
     my $w = shift;
@@ -415,13 +415,19 @@ sub Populate {
        -history => ['METHOD'],
       );
 
-    $w->Delegates('delete' => $entry,
-		  'get'    => $entry,
-		  'insert' => $entry,
-		 );
+## Delegation does not work with the new BrowseEntry --- it seems to me
+## that delegation only works for composites, not for derivates
+#    $w->Delegates('delete' => $entry,
+#		  'get'    => $entry,
+#		  'insert' => $entry,
+#		 );
 
     $w;
 }
+
+sub delete { shift->Subwidget('entry')->delete(@_) }
+sub get    { shift->Subwidget('entry')->get   (@_) }
+sub insert { shift->Subwidget('entry')->insert(@_) }
 
 sub historyAdd {
     my($w, $string) = @_;
