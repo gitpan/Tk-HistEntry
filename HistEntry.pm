@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: HistEntry.pm,v 1.17 2000/06/13 22:01:54 eserte Exp $
+# $Id: HistEntry.pm,v 1.19 2000/07/28 23:45:10 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright © 1997, 2000 Slaven Rezic. All rights reserved.
@@ -17,7 +17,7 @@ require Tk;
 use strict;
 use vars qw($VERSION);
 
-$VERSION = '0.33';
+$VERSION = '0.35';
 
 sub addBind {
     my $w = shift;
@@ -70,6 +70,16 @@ sub _listbox {
     my $w = shift;
     $w->Subwidget('slistbox') ? $w->Subwidget('slistbox') : $w;
 }
+
+sub _listbox_method {
+    my $w = shift;
+    my $meth = shift;
+    if ($w->_has_listbox) {
+	$w->_listbox->$meth(@_);
+    }
+}
+
+sub _has_listbox { $_[0]->Subwidget('slistbox') }
 
 sub historyAdd {
     my($w, $string) = @_;
@@ -145,6 +155,7 @@ sub historyReset {
     my $w = shift;
     $w->privateData->{'history'} = [];
     $w->privateData->{'historyindex'} = 0;
+    $w->_listbox_method("delete", 0, "end");
 }
 
 sub historySave {
@@ -279,7 +290,7 @@ sub KeyPress {
 	    $w->{end} = $newend;
 	} else {
 	    $w->{end} = -1;
-	} 
+	}
     }
 }
 
@@ -361,19 +372,24 @@ sub Populate {
        -match   => ['PASSIVE',  'match',   'Match',   0],
       );
 
+    $w->Delegates('delete' => $w->Subwidget('entry'),
+		  'get'    => $w->Subwidget('entry'),
+		  'insert' => $w->Subwidget('entry'),
+		 );
+
     $w;
 }
 
 sub historyAdd {
     my($w, $string) = @_;
     if (defined($string = $w->SUPER::historyAdd($string))) {
-	$w->insert('end', $string);
+	$w->_listbox_method("insert", 'end', $string);
 	# XXX Obeying -limit also for the array itself?
 	if (defined $w->cget(-limit) &&
-	    $w->_listbox->size > $w->cget(-limit)) {
-	    $w->_listbox->delete(0);
+	    $w->_listbox_method("size") > $w->cget(-limit)) {
+	    $w->_listbox_method("delete", 0);
 	}
-	$w->_listbox->see('end');
+	$w->_listbox_method("see", 'end');
 	return $string;
     }
     undef;
@@ -383,9 +399,9 @@ sub historyAdd {
 sub history {
     my($w, $history) = @_;
     if (defined $history) {
-	$w->_listbox->delete(0, 'end');
-	$w->_listbox->insert('end', @$history);
-	$w->_listbox->see('end');
+	$w->_listbox_method("delete", 0, 'end');
+	$w->_listbox_method("insert", 'end', @$history);
+	$w->_listbox_method("see", 'end');
     }
     $w->SUPER::history($history);
 }
@@ -539,6 +555,9 @@ executes the associated callback.
 
 =head1 EXAMPLE
 
+This is an simple example for Tk::HistEntry. More examples can be
+found in the t and examples directories of the source distribution.
+
     use Tk;
     use Tk::HistEntry;
 
@@ -551,6 +570,24 @@ executes the associated callback.
     $b = $top->Button(-text => 'Do it',
                       -command => sub { $he->invoke })->pack;
     MainLoop;
+
+If you like to not depend on the installation of Tk::HistEntry, you
+can write something like this:
+
+    $Entry = "SimpleHistEntry";
+    eval {
+        # try loading the module, otherwise $Entry is left to the value "Entry"
+	require Tk::HistEntry;
+	$Entry = "SimpleHistEntry";
+    };
+    $entry = $status_frame->$Entry(-textvariable => \$res)->pack;
+    $entry->bind("<Return>" => sub {
+                                   # check whether the historyAdd method is
+		                   # known to the widget
+		                   if ($entry->can('historyAdd')) {
+				       $entry->historyAdd;
+				   }
+                               });
 
 =head1 BUGS/TODO
 

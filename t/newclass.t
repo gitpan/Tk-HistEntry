@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: newclass.t,v 1.3 2000/01/08 23:12:38 eserte Exp $
+# $Id: newclass.t,v 1.6 2000/07/24 23:14:33 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997,1998 Slaven Rezic. All rights reserved.
@@ -120,9 +120,9 @@ my $inc = $b2->Subwidget('inc');
 my $dec = $b2->Subwidget('dec');
 
 $e->focus;
-$e->insert(0, 'first');
+$e->insert("end", 'first');
 $e->event('generate', "<Return>", -keysym => 'Return');
-print (($e->get eq '' ? "" : "not ") . "ok " . $ok++ . "\n");
+print ((($b2->history)[-1] eq 'first' ? "" : "not ") . "ok " . $ok++ . "\n");
 
 my @h = $e->history;
 print ((@h == 1 && $h[0] eq 'first' ? "" : "not ") . "ok " . $ok++ . "\n");
@@ -165,6 +165,10 @@ $e->insert(0, 'bla');
 $e->historyAdd;
 @h = $e->history;
 print ((@h == 5 && $h[4] eq 'bla' ? "" : "not ") . "ok " . $ok++ . "\n");
+
+my $cb = $top->Button(-text => "Ok",
+		      -command => sub { $top->destroy })->pack;
+$cb->focus;
 
 MainLoop if $VISUAL;
 

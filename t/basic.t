@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: basic.t,v 1.5 2000/01/12 21:01:09 eserte Exp $
+# $Id: basic.t,v 1.8 2000/07/28 23:45:29 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997,1998 Slaven Rezic. All rights reserved.
@@ -12,7 +12,7 @@
 # WWW:  http://user.cs.tu-berlin.de/~eserte/
 #
 
-BEGIN { $^W = 1; $| = 1; $loaded = 0; $last = 21; print "1..$last\n"; }
+BEGIN { $^W = 1; $| = 1; $loaded = 0; $last = 31; print "1..$last\n"; }
 END {print "not ok 1\n" unless $loaded;}
 
 use Tk::HistEntry;
@@ -23,6 +23,11 @@ use FindBin;
 chdir "$FindBin::RealBin";
 
 package main;
+
+sub _not {
+    print "# " . __LINE__ . "\n";
+    print "not ";
+}
 
 $loaded = 1;
 $VISUAL = !$ENV{BATCH};
@@ -41,21 +46,57 @@ $b1 = $top->SimpleHistEntry(-textvariable => \$foo,
 			    -bell => 1,
 			    -dup => 1,
 			   )->pack;
+if (!Tk::Exists($b1)) {
+    _not;
+}
 print "ok " . $ok++ . "\n";
+
 $b2 = $top->HistEntry(-textvariable => \$bla,
 		      -bell => 1,
 		      -dup => 1,
 		      -label => 'Browse:',
 		      -labelPack => [-side => 'top'],
 		     )->pack;
+if (!Tk::Exists($b2)) {
+    _not;
+}
+print "ok " . $ok++ . "\n";
+
+my @test_values = qw(bla foo bar);
 
 my($b4) = $top->HistEntry->pack;
-foreach (qw(bla foo bar)) { $b4->historyAdd($_) }
+foreach (@test_values) { $b4->historyAdd($_) }
+if (join(",", @test_values) ne join(",", $b4->history)) {
+    _not;
+}
+print "ok " . $ok++ . "\n";
+
+$b4->_entry->insert("end", "blubber");
+$b4->addhistory();
+if (join(",", @test_values, "blubber") ne join(",", $b4->history)) {
+    _not;
+}
+print "ok " . $ok++ . "\n";
+
 $b4->OnDestroy(sub { $b4->historySave("hist.tmp.save") });
 
+
 my($b5) = $top->SimpleHistEntry->pack;
-foreach (qw(bla foo bar)) { $b5->historyAdd($_) }
+foreach (@test_values) { $b5->historyAdd($_) }
+if (join(",", @test_values) ne join(",", $b5->history)) {
+    _not;
+}
+print "ok " . $ok++ . "\n";
+
+$b5->insert("end", "blubber");
+$b5->addhistory();
+if (join(",", @test_values, "blubber") ne join(",", $b5->history)) {
+    _not;
+}
+print "ok " . $ok++ . "\n";
+
 $b5->OnDestroy(sub { $b5->historySave("hist2.tmp.save") });
+
 
 print "ok " . $ok++ . "\n";
 $b1->update;
@@ -121,23 +162,63 @@ $b4->destroy;
 my(@oldhist2) = $b5->history;
 $b5->destroy;
 
+# testing historyMergeFromFile for HistEntry
 my $b3 = $top->HistEntry;
 $b3->historyMergeFromFile("hist.tmp.save");
 
 if (join(",", @oldhist) ne join(",", $b3->history)) {
-    print "not ";
+    _not;
 }
 print "ok " . $ok++ . "\n";
 unlink "hist.tmp.save";
 
+# testing historyReset
+$b3->historyReset;
+my(@histafterreset) = $b3->history;
+if (@histafterreset) {
+    _not;
+}
+print "ok " . $ok++ . "\n";
+
+@histafterreset = $b3->_listbox->get(0, "end");
+if (@histafterreset) {
+    _not;
+}
+print "ok " . $ok++ . "\n";
+
+# testing historyMergeFromFile for SimpleHistEntry
 my $b6 = $top->SimpleHistEntry;
 $b6->historyMergeFromFile("hist2.tmp.save");
 
 if (join(",", @oldhist2) ne join(",", $b6->history)) {
-    print "not ";
+    _not;
 }
 print "ok " . $ok++ . "\n";
 unlink "hist2.tmp.save";
+
+# testing historyReset for SimpleHistEntry
+$b6->historyReset;
+@histafterreset = $b6->history;
+if (@histafterreset) {
+    _not;
+}
+print "ok " . $ok++ . "\n";
+
+# testing get/delete methods
+$b3->insert('end', "blablubber");
+if ($b3->get eq "") {
+    _not;
+}
+print "ok " . $ok++ . "\n";
+
+$b3->delete(0, 'end');
+if ($b3->get ne "") {
+    _not;
+}
+print "ok " . $ok++ . "\n";
+
+$top->Button(-text => "OK",
+	     -command => sub { $top->destroy })->pack->focus;
 
 MainLoop if $VISUAL;
 
