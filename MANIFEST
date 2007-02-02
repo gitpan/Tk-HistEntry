@@ -9,3 +9,4 @@ t/basic.t
 t/newclass.t
 t/match.t
 t/invoke.t
+META.yml                                 Module meta-data (added by MakeMaker)

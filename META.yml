@@ -1,0 +1,12 @@
+--- #YAML:1.0
+name:                Tk-HistEntry
+version:             0.43
+abstract:            ~
+license:             ~
+generated_by:        ExtUtils::MakeMaker version 6.31
+distribution_type:   module
+requires:     
+    Tk:                            0
+meta-spec:
+    url:     http://module-build.sourceforge.net/META-spec-v1.2.html
+    version: 1.2
